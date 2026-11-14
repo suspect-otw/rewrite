@@ -755,6 +755,47 @@ function fastPosixRelative(filePath, basePath) {
 }
 
 /**
+ * Computes the relative path between two namespaced Windows paths.
+ *
+ * `relative()` from `@std/path/windows` finds the common prefix in lowercased
+ * copies of the paths and then slices the original paths with those indexes.
+ * Lowercasing can change the length of a string (`"İ".toLowerCase()` has
+ * two code units), which makes the result lose leading characters. When that
+ * happens, the paths are compared segment by segment instead.
+ * @param {string} from The namespaced path to start from.
+ * @param {string} to The namespaced path to get to.
+ * @returns {string} The relative path from `from` to `to`.
+ * @see https://github.com/denoland/std/issues/7336
+ */
+function windowsRelative(from, to) {
+	if (
+		from.toLowerCase().length === from.length &&
+		to.toLowerCase().length === to.length
+	) {
+		return windowsPath.relative(from, to);
+	}
+
+	const fromSegments = from.split(windowsPath.SEPARATOR).filter(Boolean);
+	const toSegments = to.split(windowsPath.SEPARATOR).filter(Boolean);
+
+	let commonLength = 0;
+
+	while (
+		commonLength < fromSegments.length &&
+		commonLength < toSegments.length &&
+		fromSegments[commonLength].toLowerCase() ===
+			toSegments[commonLength].toLowerCase()
+	) {
+		commonLength++;
+	}
+
+	return [
+		...fromSegments.slice(commonLength).map(() => ".."),
+		...toSegments.slice(commonLength),
+	].join(windowsPath.SEPARATOR);
+}
+
+/**
  * Converts a given path to a relative path with all separator characters replaced by forward slashes (`"/"`).
  * @param {string} fileOrDirPath The unprocessed path to convert.
  * @param {string} namespacedBasePath The namespaced base path of the directory to which the calculated path shall be relative.
@@ -772,7 +813,10 @@ function toRelativePath(fileOrDirPath, namespacedBasePath, path) {
 
 	const fullPath = path.resolve(namespacedBasePath, fileOrDirPath);
 	const namespacedFullPath = path.toNamespacedPath(fullPath);
-	const relativePath = path.relative(namespacedBasePath, namespacedFullPath);
+	const relativePath =
+		path === windowsPath
+			? windowsRelative(namespacedBasePath, namespacedFullPath)
+			: path.relative(namespacedBasePath, namespacedFullPath);
 	return relativePath.replaceAll(path.SEPARATOR, "/");
 }
 

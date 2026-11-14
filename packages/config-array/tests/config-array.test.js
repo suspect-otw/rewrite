@@ -3577,6 +3577,73 @@ describe("ConfigArray", () => {
 					);
 				});
 
+				describe("base path with a character that changes length when lowercased", () => {
+					const dottedBasePath = "C:\\Users\\EM\u0130R\\app";
+
+					beforeEach(() => {
+						configs = new ConfigArray(
+							[
+								{ files: ["**/*.js"] },
+								{ ignores: ["**/node_modules/"] },
+							],
+							{ basePath: dottedBasePath },
+						);
+
+						configs.normalizeSync();
+					});
+
+					it('should return "matched" for a file in the base directory', () => {
+						assert.strictEqual(
+							configs.getConfigStatus(
+								`${dottedBasePath}\\src\\file.js`,
+							),
+							"matched",
+						);
+					});
+
+					it('should return "matched" for a file in the base directory with different capitalization', () => {
+						assert.strictEqual(
+							configs.getConfigStatus(
+								"c:\\users\\EM\u0130R\\APP\\src\\file.js",
+							),
+							"matched",
+						);
+					});
+
+					it('should return "ignored" for a file in an ignored directory', () => {
+						assert.strictEqual(
+							configs.getConfigStatus(
+								`${dottedBasePath}\\node_modules\\pkg\\index.js`,
+							),
+							"ignored",
+						);
+						assert.strictEqual(
+							configs.isDirectoryIgnored(
+								`${dottedBasePath}\\node_modules`,
+							),
+							true,
+						);
+					});
+
+					it('should return "external" for a file outside the base directory', () => {
+						assert.strictEqual(
+							configs.getConfigStatus(
+								"C:\\Users\\EM\u0130R\\other\\file.js",
+							),
+							"external",
+						);
+					});
+
+					it('should return "external" for a file on a different drive', () => {
+						assert.strictEqual(
+							configs.getConfigStatus(
+								"D:\\Users\\EM\u0130R\\app\\file.js",
+							),
+							"external",
+						);
+					});
+				});
+
 				it('should return "matched" for a file with a UNC path in the base directory', () => {
 					configs = new ConfigArray([{ files: ["**/*.js"] }], {
 						basePath: "\\\\NAS\\Share",
